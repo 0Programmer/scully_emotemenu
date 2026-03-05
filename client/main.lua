@@ -49,6 +49,7 @@ exports('getLastEmote', GetLastEmote)
 ---@param variation? number
 function PlayEmote(data, variation)
     if PlayerState.isLimited then return end
+    if PlayerState.isDead then return end
 
     if data.Synchronized and not data.StartSynchronized then
         local coords = GetEntityCoords(cache.ped)
@@ -122,7 +123,7 @@ function PlayEmote(data, variation)
 
     if Config.enableAimShootBlock then
         CreateThread(function()
-            while PlayerState.isInEmote do
+            while PlayerState.isInEmote and not IsPedRagdoll(cache.ped) do
                 Wait(0)
 
                 DisableControlAction(0, 25, true)
@@ -826,6 +827,9 @@ AddStateBagChangeHandler('emotePtfx', nil, function(bagName, key, value, reserve
         return
     end
 
+    -- ignore if ptfx is already playing
+    if pedPtfx[serverId] then return end
+
     Wait(100)
 
     local props = pedProps[serverId]
@@ -1016,6 +1020,8 @@ if Config.ptfxKey then
         end,
         onReleased = function()
             if PlayerState?.ptfx?.canHold then
+                Wait(1000) -- wait for ptfx to initialize, some what race condition
+
                 PlayerState:set('emotePtfx', false, true)
             end
         end
@@ -1130,6 +1136,11 @@ AddEventHandler('CEventPlayerCollisionWithPed', function()
         Wait(10)
         PlayEmote(lastEmote[1], lastEmote[2])
     end
+end)
+
+-- cancel emote on death
+RegisterNetEvent('qbx_medical:client:onPlayerDied', function()
+	CancelEmote()
 end)
 
 if Config.handsUpKey ~= '' then require 'client.modules.handsup' end
